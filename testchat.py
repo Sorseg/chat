@@ -1,31 +1,49 @@
 import asyncore
-import threading
+import logging
 import unittest
-import time
+import sys
 import network
 
+logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
+
+def asyncore_loop():
+    asyncore.loop(0, count=10)
 
 class TestNetwork(unittest.TestCase):
-    PORT = 4466
+    PORT = 4469
+
     def setUp(self):
         self.host = network.Host('', self.PORT)
-        self.client = network.Client('', self.PORT)
+        self.client = network.Client('127.0.0.1', self.PORT)
+
         self.client.login('user')
-        time.sleep(0.1)
-        threading.Thread(target=network.asyncore.loop).start()
+
+        asyncore_loop()
 
     def tearDown(self):
-        self.client.close()
         try:
+            self.client.close()
             self.host.close()
+            asyncore_loop()
         except asyncore.ExitNow:
             pass
 
     def test_login(self):
-        self.assertIn('user', self.host.users)
+        self.assertIn('user', self.host.users.keys())
 
-    def test_send(self):
+    def test_client_to_server(self):
         self.client.send_message({'type': 'msg', 'text': 'TEST'})
-        self.assertEqual('TEST', self.host.messages.get_nowait()['text'])
+        asyncore_loop()
+        self.assertEqual('TEST', self.host.messages[-1]['text'])
+
+    def test_server_to_client(self):
         self.host.send_message({'type': 'msg', 'text': 'HELLO'})
-        self.assertEqual('HELLO', self.client.messages.get_nowait()['text'])
+        asyncore_loop()
+        self.assertEqual('HELLO', self.client.messages[-1]['text'])
+
+    def test_malformed_to_server(self):
+        self.skipTest("not implemented")
+
+    def test_malformed_to_client(self):
+        self.skipTest("not implemented")
+
