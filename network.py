@@ -1,4 +1,3 @@
-from Queue import Queue
 import asynchat
 import asyncore
 import json
@@ -22,7 +21,7 @@ class Host(asyncore.dispatcher):
         logging.info("Accepting connection...")
         pair = self.accept()
         if pair is None:
-            logging.info("Unsuccesfull")
+            logging.info("Unsuccessful")
             return
         sock, addr = pair
 
@@ -43,11 +42,10 @@ class Host(asyncore.dispatcher):
 
 class ChatHandler(asynchat.async_chat):
 
-    def __init__(self, connection = None):
+    def __init__(self, connection=None):
         self.data = []
         self.set_terminator(TERMINATOR)
         asynchat.async_chat.__init__(self, connection)
-
 
     def collect_incoming_data(self, data):
         logging.debug("Data incoming:"+repr(data))
@@ -66,7 +64,7 @@ class ChatHandler(asynchat.async_chat):
         try:
             msg = json.loads(''.join(self.data))
         except ValueError:
-            logging.warn('Wrong message:'+repr(msg))
+            logging.warn('Wrong message:'+repr(''.join(self.data)))
             self.invalid()
             return None
         finally:
@@ -122,7 +120,7 @@ class ServerHandler(ChatHandler):
 
 
 class Client(ChatHandler):
-    MESSAGETYPES=['msg', 'error', 'login', 'logout']
+    MESSAGETYPES = ['msg', 'error', 'login', 'logout']
 
     def __init__(self, addr, port):
         self.users = []
@@ -135,8 +133,10 @@ class Client(ChatHandler):
     def login(self, login):
         self.send_message({'login': login, 'type': 'login'})
 
+    def msg(self, msg):
+        self.send_message({'type': 'msg', 'text': msg})
+
     def do_msg(self, msg):
         self.messages.append(msg)
 
     do_error = do_msg
-

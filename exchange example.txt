@@ -1,0 +1,20 @@
+<-
+{"type":"quit", "cause":"(exception|banned)"}
+->
+{"type":"msg", "text":"test"}
+<-
+{"type":"msgerr", "cause":"(nologin|exception|invalid)"}
+->
+{"type":"login", "login":"user"}
+<-
+{"type":"loginok", "login":"user1"}
+{"type":"loginerr", "cause":"(badlogin|exception|full)"}
+{"type":"userlist", "users":["user","user2","user3"]}
+{"type":"login", "user":"user4"}
+{"type":"logoff", "user":"user2"}
+->
+{"type":"msg", "text":"\n\n\n   Hello World\n\n\n"}
+<-
+{"type":"msg", "from":"user1", "text":"   Hello World"}
+{"type":"msg", "from":"user4", "text":"Hello, user1"}
+{"type":"quit", "cause":"(exception|full|kicked|serverquit|banned)"}
