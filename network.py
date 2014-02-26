@@ -100,6 +100,8 @@ class ServerHandler(ChatHandler):
         self.logger = logging.getLogger('srv'+str(self.i))
         ServerHandler.i += 1
         self.host = host
+        self.messages = host.messages
+        self.users = host.users
 
     def do_login(self, msg):
         login = msg.get('login', '')
@@ -126,7 +128,6 @@ class ServerHandler(ChatHandler):
         self.send_message({'type': 'userlist', 'users': self.users.keys()})
         self.host.send_message({'type': 'login', 'user': self.login})
 
-
     def do_msg(self, msg):
         if not self.login:
             self.nologin()
@@ -141,13 +142,6 @@ class ServerHandler(ChatHandler):
     def nologin(self):
         self.send_message({'type': 'msgerr', 'cause': 'nologin'})
 
-    @property
-    def messages(self):
-        return self.host.messages
-
-    @property
-    def users(self):
-        return self.host.users
 
     def do_msgerr(self, msg):
         msg['from'] = self.login

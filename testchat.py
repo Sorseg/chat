@@ -33,7 +33,7 @@ PORT = 4469
 
 
 def asyncore_loop():
-    asyncore.loop(0.001, count=20)
+    asyncore.loop(0, count=200)
 
 
 class TestNetwork(unittest.TestCase):
