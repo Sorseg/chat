@@ -11,7 +11,7 @@
 {"type":"loginerr", "cause":"(badlogin|exception|full)"}
 {"type":"userlist", "users":["user","user2","user3"]}
 {"type":"login", "user":"user4"}
-{"type":"logoff", "user":"user2"}
+{"type":"logout", "user":"user2"}
 ->
 {"type":"msg", "text":"\n\n\n   Hello World\n\n\n"}
 <-

@@ -16,47 +16,49 @@ class Host(asyncore.dispatcher):
         self.set_reuse_addr()
         self.bind((interface, port))
         self.listen(20)
+        self.logger = logging.getLogger('host')
 
     def handle_accept(self):
-        logging.info("Accepting connection...")
+        self.logger.info("Accepting connection...")
         pair = self.accept()
         if pair is None:
-            logging.info("Unsuccessful")
+            self.logger.info("Unsuccessful")
             return
         sock, addr = pair
 
-        logging.info("Connection accepted:"+str(addr))
+        self.logger.info("Connection accepted:"+str(addr))
         ServerHandler(self, sock)
-
-    def close(self):
-        asyncore.dispatcher.close(self)
-        raise asyncore.ExitNow
 
     def __del__(self):
         self.close()
 
     def send_message(self, msg):
+        self.logger.info('brdcst:'+repr(msg))
         for conn in self.users.values():
             conn.send_message(msg)
+
+    def msg(self, msg):
+        self.send_message({'type': 'msg', 'text': msg})
 
 
 class ChatHandler(asynchat.async_chat):
 
     def __init__(self, connection=None):
+        self.logger = logging.getLogger('?')
         self.data = []
         self.set_terminator(TERMINATOR)
+        self.login = ''
         asynchat.async_chat.__init__(self, connection)
 
     def collect_incoming_data(self, data):
-        logging.debug("Data incoming:"+repr(data))
         self.data.append(data)
 
     def send_message(self, msg):
         self.push(json.dumps(msg)+TERMINATOR)
 
     def invalid(self):
-        msg = {'type': 'error',
-               'cause': 'invalid message'}
+        msg = {'type': 'msgerr',
+               'cause': 'invalid'}
 
         self.send_message(msg)
 
@@ -64,79 +66,128 @@ class ChatHandler(asynchat.async_chat):
         try:
             msg = json.loads(''.join(self.data))
         except ValueError:
-            logging.warn('Wrong message:'+repr(''.join(self.data)))
+            self.logger.warn('Invalid message:'+repr(''.join(self.data)))
             self.invalid()
             return None
         finally:
             self.data = []
         msg_type = msg.get('type', None)
+        self.logger.info("<-:"+"({}):".format(self.login)+repr(msg))
         if msg_type not in self.MESSAGETYPES:
             self.invalid()
             return None
-        getattr(self, 'do_'+msg_type)(msg)
-        return msg
+        doer = getattr(self, 'do_'+msg_type, None)
+        skip = False
+        if doer and doer(msg) == 'skip':
+            skip = True
+        if not skip:
+            self.messages.append(msg)
+
+    def push(self, msg):
+        self.logger.info('->:'+str(msg.strip()))
+        asynchat.async_chat.push(self, msg)
+
+    def quit(self):
+        self.close()
 
 
 class ServerHandler(ChatHandler):
-    MESSAGETYPES = ['msg', 'error', 'login']
+    i = 1
+    MESSAGETYPES = ['msg', 'msgerr', 'error', 'login']
 
     def __init__(self, host, connection):
         ChatHandler.__init__(self, connection)
-        self.login = None
+        self.logger = logging.getLogger('srv'+str(self.i))
+        ServerHandler.i += 1
         self.host = host
 
     def do_login(self, msg):
-        login = msg.get('login', None)
-        self.login = login
-        logging.info("Login:"+repr(login))
-        if login is None:
+        login = msg.get('login', '')
+        login = str(login)
+        self.logger.info("Login:"+repr(login))
+        if not login:
             self.login_error()
         else:
-            self.host.users[login] = self
-        logging.debug("host users:"+str(self.host.users))
+            self.login = login
+            i = 1
+            while self.login in self.users:
+                self.login = login + str(i)
+                i += 1
 
-    def found_terminator(self):
-        msg = ChatHandler.found_terminator(self)
-        if not msg:
-            return
-        logging.info("Message from: "+self.login+": "+repr(msg))
-
-    def send_message(self, msg):
-        self.push(json.dumps(msg)+TERMINATOR)
+            self.loginok()
+            self.users[self.login] = self
+        self.logger.debug("host users:"+str(self.users))
 
     def login_error(self):
-        msg = {'type': 'error'}
-        if self.login is None:
-            msg['cause'] = 'no login'
-        else:
-            msg['cause'] = 'invalid login'
+        self.send_message({'type': 'loginerr', 'cause': 'badlogin'})
 
-        self.send_message(msg)
+    def loginok(self):
+        self.send_message({'type': 'loginok', 'login': self.login})
+        self.send_message({'type': 'userlist', 'users': self.users.keys()})
+        self.host.send_message({'type': 'login', 'user': self.login})
+
 
     def do_msg(self, msg):
-        self.host.messages.append(msg)
+        if not self.login:
+            self.nologin()
+        text = msg.get('text', '').lstrip('\n').rstrip()
+        if not text:
+            self.logger.debug("skipping "+repr(msg))
+            return 'skip'
+        msg['text'] = text
+        msg['from'] = self.login
+        self.host.send_message(msg)
 
-    do_error = do_msg
+    def nologin(self):
+        self.send_message({'type': 'msgerr', 'cause': 'nologin'})
+
+    @property
+    def messages(self):
+        return self.host.messages
+
+    @property
+    def users(self):
+        return self.host.users
+
+    def do_msgerr(self, msg):
+        msg['from'] = self.login
+        self.messages.append(msg)
+
+    def quit(self):
+        ChatHandler.quit(self)
+        self.host.send_message({'type': 'logout', 'user': self.login})
+        self.users.pop(self.login, None)
+
+    handle_close = quit
 
 
 class Client(ChatHandler):
-    MESSAGETYPES = ['msg', 'error', 'login', 'logout']
+    MESSAGETYPES = ['msg', 'msgerr', 'error', 'login', 'logout', 'loginok', 'loginerr', 'userlist']
+    i = 1
 
     def __init__(self, addr, port):
         self.users = []
         self.messages = []
         ChatHandler.__init__(self)
+        self.logger = logging.getLogger('clnt'+str(self.i))
+        Client.i += 1
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.connect((addr, port))
 
-    def login(self, login):
+    def perform_login(self, login):
         self.send_message({'login': login, 'type': 'login'})
 
     def msg(self, msg):
         self.send_message({'type': 'msg', 'text': msg})
 
-    def do_msg(self, msg):
-        self.messages.append(msg)
+    def do_loginok(self, msg):
+        self.login = msg['login']
 
-    do_error = do_msg
+    def do_userlist(self, msg):
+        self.users = msg['users']
+
+    def do_logout(self, msg):
+        u = msg['user']
+        if u in self.users:
+            self.users.remove(u)
