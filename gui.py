@@ -3,6 +3,58 @@ import ttk
 
 root = tk.Tk()
 
+def connect():
+    pass
+
+
+def host():
+    pass
+
+
+def disable_chat():
+    userlist['bg']='grey'
+    text['bg']='grey'
+    text['state']='disabled'
+
+
+def enable_chat():
+    userlist['bg']='white'
+    text['bg']='white'
+    text['state']='normal'
+
+
+def show_options():
+    '''show options window'''
+    if root.options_window.winfo_exists():
+        root.options_window.deiconify()
+        return
+
+    root.options_window = tk.Toplevel(takefocus=True)
+    root.options_window.title('Options')
+
+    login_label = ttk.Label(root.options_window, text='Login:')
+    login_label.grid(row=0,column=0)
+
+    root.login = ttk.Entry(root.options_window)
+    root.login.insert(0,'User')
+    root.login.grid(row=0, column=1)
+
+    connect_button = ttk.Button(root.options_window,
+        text='Connect', command=connect)
+
+    connect_button.grid(row=1, column=0)
+
+    root.address = ttk.Entry(root.options_window)
+    root.address.insert(0,'sorseg.dyndns.org')
+    root.address.grid(row=1, column=1)
+
+    host_button = ttk.Button(root.options_window,
+        text='Host', command=host)
+    host_button.grid(row=2, column=0)
+
+    root.options_window.lift()
+    root.options_window.deiconify()
+
 
 def build_from_dict(tkd, root):
     """Builds tkinter app from dictionary"""
@@ -48,7 +100,7 @@ widgets_dict = {
                 'pack': {'side': 'right', 'fill': 'y'},
                 'children': {
                     'options': {
-                        'widget': ttk.Button,
+                        'widget': ttk.Button, 'command': show_options,
                         'args': {'text': 'options'},
                         'pack': {'side': 'top'}
                     },
@@ -85,5 +137,10 @@ userlist = root.widgets['top frame']['right frame']['users']['widget']
 text = root.widgets['bottom frame']['text']['widget']
 messages = root.widgets['top frame']['messages']['widget']
 
+root.options_window = tk.Toplevel()
+root.options_window.destroy()
 
+root.after(50, show_options)
+
+disable_chat()
 root.mainloop()
