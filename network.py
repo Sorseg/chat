@@ -105,9 +105,9 @@ class ServerHandler(ChatHandler):
 
     def do_login(self, msg):
         login = msg.get('login', '')
-        login = str(login)
+        login = str(login).strip()
         self.logger.info("Login:"+repr(login))
-        if not login:
+        if any((not login, '\n' in login, len(login) > 30)):
             self.login_error()
         else:
             self.login = login
@@ -141,7 +141,6 @@ class ServerHandler(ChatHandler):
 
     def nologin(self):
         self.send_message({'type': 'msgerr', 'cause': 'nologin'})
-
 
     def do_msgerr(self, msg):
         msg['from'] = self.login
