@@ -33,7 +33,7 @@ class Host(asyncore.dispatcher):
         self.close()
 
     def send_message(self, msg):
-        self.logger.info('brdcst:'+repr(msg))
+        self.logger.info('=>:'+repr(msg))
         for conn in self.users.values():
             conn.send_message(msg)
 
@@ -84,7 +84,7 @@ class ChatHandler(asynchat.async_chat):
             self.messages.append(msg)
 
     def push(self, msg):
-        self.logger.info('->:'+str(msg.strip()))
+        self.logger.info('->:({})'.format(self.login or '') + repr(msg.strip()))
         asynchat.async_chat.push(self, msg)
 
     def quit(self):
