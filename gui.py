@@ -1,30 +1,87 @@
 import Tkinter as tk
+import asyncore
+import logging
 import ttk
+import sys
+
+import network
+
 
 root = tk.Tk()
+PORT = 6677
 
-def connect():
-    pass
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+
+class ChatWindow(tk.Tk):
+    def __init__(self):
+        tk.Tk.__init__(self)
+
+    def show_options(self):
+        pass
+
+    def send_message(self):
+        pass
+
+
+class OptionsWindow(tk.Toplevel):
+    def __init__(self, master):
+        tk.Toplevel.__init__(self, master, takefocus=True)
+        #add layout
+
+    def show_options(self):
+        pass
+
+    def connect(self):
+        pass
+
+    def host(self):
+        pass
+
+
+def reset_chat():
+    asyncore.close_all()
+    #TODO delete all messages and users
+
+
+def connect(self=False):
+    if not self:
+        reset_chat()
+
+    client = root.client = network.Client('127.0.0.1' if self else root.address.get(), PORT)
+
+    def on_connect():
+        client.perform_login(root.login.get())
+        enable_chat()
+
+    client.handle_connect = on_connect
 
 
 def host():
-    pass
+    reset_chat()
+    root.host = network.Host('', PORT)
+    connect(self=True)
+
+
+def asyncore_loop():
+    asyncore.loop(0, count=10)
+    root.after(50, asyncore_loop)
 
 
 def disable_chat():
-    userlist['bg']='grey'
-    text['bg']='grey'
-    text['state']='disabled'
+    userlist['bg'] = 'grey'
+    text['bg'] = 'grey'
+    text['state'] = 'disabled'
 
 
 def enable_chat():
-    userlist['bg']='white'
-    text['bg']='white'
-    text['state']='normal'
+    userlist['bg'] = 'white'
+    text['bg'] = 'white'
+    text['state'] = 'normal'
 
 
 def show_options():
-    '''show options window'''
+    """show options window"""
     if root.options_window.winfo_exists():
         root.options_window.deiconify()
         return
@@ -33,23 +90,23 @@ def show_options():
     root.options_window.title('Options')
 
     login_label = ttk.Label(root.options_window, text='Login:')
-    login_label.grid(row=0,column=0)
+    login_label.grid(row=0, column=0)
 
     root.login = ttk.Entry(root.options_window)
-    root.login.insert(0,'User')
+    root.login.insert(0, 'User')
     root.login.grid(row=0, column=1)
 
     connect_button = ttk.Button(root.options_window,
-        text='Connect', command=connect)
+                                text='Connect', command=connect)
 
     connect_button.grid(row=1, column=0)
 
     root.address = ttk.Entry(root.options_window)
-    root.address.insert(0,'sorseg.dyndns.org')
+    root.address.insert(0, 'sorseg.dyndns.org')
     root.address.grid(row=1, column=1)
 
     host_button = ttk.Button(root.options_window,
-        text='Host', command=host)
+                             text='Host', command=host)
     host_button.grid(row=2, column=0)
 
     root.options_window.lift()
@@ -143,4 +200,6 @@ root.options_window.destroy()
 root.after(50, show_options)
 
 disable_chat()
+asyncore_loop()
 root.mainloop()
+asyncore.close_all()
